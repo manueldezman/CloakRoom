@@ -39,7 +39,7 @@ async function main() {
     args: [0n, officialLength],
   });
   const officialAddrs = new Set(
-    (official as { tokenAddress: string }[]).map((p) => p.tokenAddress.toLowerCase())
+    official.map((p) => p.tokenAddress.toLowerCase())
   );
 
   for (const pair of pairs as { tokenAddress: string; confidentialTokenAddress: string; label?: string }[]) {
