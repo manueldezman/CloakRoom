@@ -127,7 +127,7 @@ export async function wrapToken(
   try {
     const wrappedToken = sdk.createWrappedToken(confidentialTokenAddress);
     const tx = await wrappedToken.shield(amount);
-    return { status: "ok", txHash: tx.hash as `0x${string}` };
+    return { status: "ok", txHash: tx.txHash as `0x${string}` };
   } catch (err: any) {
     return { status: "error", message: err?.message ?? String(err) };
   }
@@ -152,7 +152,7 @@ export async function unwrapToken(
   try {
     const wrappedToken = sdk.createWrappedToken(confidentialTokenAddress);
     const tx = await wrappedToken.unshield(amount);
-    return { status: "ok", txHash: tx.hash as `0x${string}` };
+    return { status: "ok", txHash: tx.txHash as `0x${string}` };
   } catch (err: any) {
     return { status: "error", message: err?.message ?? String(err) };
   }
