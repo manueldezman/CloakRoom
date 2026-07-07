@@ -2,15 +2,24 @@
 
 import "@rainbow-me/rainbowkit/styles.css";
 import { getDefaultConfig, RainbowKitProvider, lightTheme } from "@rainbow-me/rainbowkit";
+import { injectedWallet, walletConnectWallet } from "@rainbow-me/rainbowkit/wallets";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider } from "wagmi";
 import { sepolia } from "wagmi/chains";
 
+const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? "";
+
 const config = getDefaultConfig({
   appName: "Confidential Wrapper Registry",
-  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? "",
+  projectId,
   chains: [sepolia],
   ssr: true,
+  wallets: [
+    {
+      groupName: "Recommended",
+      wallets: [injectedWallet, walletConnectWallet],
+    },
+  ],
 });
 
 const queryClient = new QueryClient();

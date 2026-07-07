@@ -1,4 +1,5 @@
 import { WrappersRegistry, type TokenWrapperPairWithMetadata } from "@zama-fhe/sdk";
+import { ViemProvider } from "@zama-fhe/sdk/viem";
 import { publicClient, REGISTRY_ADDRESS, SEPOLIA_CHAIN_ID } from "./chains";
 import { erc165Abi, erc20ReadAbi, erc7984ReadAbi } from "./abis";
 import { ERC7984_WRAPPER_INTERFACE_ID } from "@zama-fhe/sdk";
@@ -32,7 +33,7 @@ type LocalPair = {
 };
 
 const wrappersRegistry = new WrappersRegistry({
-  provider: publicClient,
+  provider: new ViemProvider({ publicClient }),
   registryAddresses: { [SEPOLIA_CHAIN_ID]: REGISTRY_ADDRESS },
 });
 
