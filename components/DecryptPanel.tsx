@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 import { useZamaSDK } from "@/lib/useZamaSDK";
-import { decryptBalance, DecryptResult } from "@/lib/zama";
+import { decryptBalance, DecryptResult, getTokenDisplayMetadata } from "@/lib/zama";
 import { Button } from "./Button";
 import { Badge } from "./Badge";
 
@@ -19,11 +19,13 @@ export function DecryptRow({
   label,
   symbol,
   decimals,
+  autoReveal = false,
 }: {
   tokenAddress: `0x${string}`;
   label: string;
   symbol?: string | null;
   decimals?: number | null;
+  autoReveal?: boolean;
 }) {
   const sdk = useZamaSDK();
   const { isConnected, address } = useAccount();
@@ -33,6 +35,7 @@ export function DecryptRow({
 
   async function reveal() {
     if (!sdk || !address) return;
+    setErrorTone("");
     setState("decrypting");
     const result: DecryptResult = await decryptBalance(sdk, tokenAddress, address);
     switch (result.status) {
@@ -49,7 +52,9 @@ export function DecryptRow({
         setState("error");
         break;
       case "not-erc7984":
-        setErrorTone("This address doesn't look like an ERC-7984 confidential token.");
+        setErrorTone(
+          "This address is not a readable ERC-7984 token on Sepolia. Make sure you pasted the confidential token address, not an ERC-20 or a mainnet address."
+        );
         setState("error");
         break;
       case "unknown-error":
@@ -59,31 +64,51 @@ export function DecryptRow({
     }
   }
 
+  useEffect(() => {
+    if (!autoReveal) return;
+    if (!sdk || !address) return;
+    void reveal();
+  }, [autoReveal, tokenAddress, sdk, address]);
+
   return (
-    <div className="flex items-center justify-between rounded-md border border-tertiary bg-surface px-md py-sm">
-      <div>
-        <p className="text-label-lg">{label}</p>
-        <p className="text-body-sm text-tertiary font-mono">{shorten(tokenAddress)}</p>
-      </div>
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between rounded-md border border-tertiary bg-surface px-md py-sm">
+        <div>
+          <p className="text-label-lg">{label}</p>
+          <p className="text-body-sm text-tertiary font-mono">{shorten(tokenAddress)}</p>
+        </div>
 
-      <div className="flex items-center gap-3">
-        {state === "hidden" && <Badge tone="neutral">🔒 Encrypted</Badge>}
-        {state === "decrypting" && <Badge tone="neutral">Decrypting…</Badge>}
-        {state === "revealed" && (
-          <span className="text-label-lg font-mono">
-            {formatUnits(value ?? 0n, decimals ?? 18)} {symbol ?? ""}
-          </span>
-        )}
-        {state === "error" && <span className="text-body-sm text-error max-w-[220px] text-right">{errorTone}</span>}
+        <div className="flex items-center gap-3">
+          {state === "hidden" && <Badge tone="neutral">🔒 Encrypted</Badge>}
+          {state === "decrypting" && <Badge tone="neutral">Decrypting…</Badge>}
+          {state === "revealed" && (
+            <span className="text-label-lg font-mono">
+              {formatUnits(value ?? 0n, decimals ?? 18)} {symbol ?? ""}
+            </span>
+          )}
 
-        <Button
-          variant="secondary"
-          onClick={reveal}
-          disabled={!isConnected || !sdk || state === "decrypting"}
-        >
-          {state === "revealed" ? "Refresh" : "Reveal"}
-        </Button>
+          {!autoReveal && (
+            <Button
+              variant="secondary"
+              onClick={reveal}
+              disabled={!isConnected || !sdk || state === "decrypting"}
+            >
+              {state === "revealed" ? "Refresh" : "Reveal"}
+            </Button>
+          )}
+        </div>
       </div>
+      {state === "error" && (
+        <div className="rounded-md border border-error bg-white px-md py-sm">
+          <div className="flex items-start gap-2">
+            <span className="text-error text-body-md leading-none">!</span>
+            <div className="flex flex-col gap-1">
+              <p className="text-label-sm text-error">Decrypt failed</p>
+              <p className="text-body-sm text-error">{errorTone}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -91,7 +116,25 @@ export function DecryptRow({
 /** "Paste an address" flow — decrypt any ERC-7984 balance, registry or not. */
 export function ArbitraryDecryptPanel() {
   const [input, setInput] = useState("");
-  const [confirmed, setConfirmed] = useState<`0x${string}` | null>(null);
+  const [activeAddress, setActiveAddress] = useState<`0x${string}` | null>(null);
+  const [activeLabel, setActiveLabel] = useState("Custom address");
+  const [activeSymbol, setActiveSymbol] = useState<string | null>(null);
+  const sdk = useZamaSDK();
+
+  async function checkAddress() {
+    const tokenAddress = input as `0x${string}`;
+    setActiveAddress(tokenAddress);
+
+    if (!sdk) {
+      setActiveLabel("Custom address");
+      setActiveSymbol(null);
+      return;
+    }
+
+    const metadata = await getTokenDisplayMetadata(sdk, tokenAddress);
+    setActiveLabel(metadata.name || "Custom address");
+    setActiveSymbol(metadata.symbol ?? null);
+  }
 
   return (
     <div className="rounded-lg border border-tertiary p-md flex flex-col gap-sm">
@@ -106,14 +149,19 @@ export function ArbitraryDecryptPanel() {
           value={input}
           onChange={(e) => setInput(e.target.value.trim())}
         />
-        <Button
-          onClick={() => setConfirmed(input as `0x${string}`)}
-          disabled={!/^0x[a-fA-F0-9]{40}$/.test(input)}
-        >
-          Check
+        <Button onClick={checkAddress} disabled={!/^0x[a-fA-F0-9]{40}$/.test(input)}>
+          Decrypt
         </Button>
       </div>
-      {confirmed && <DecryptRow tokenAddress={confirmed} label="Custom address" />}
+      {activeAddress && (
+        <DecryptRow
+          tokenAddress={activeAddress}
+          label={activeLabel}
+          symbol={activeSymbol}
+          autoReveal
+          key={activeAddress}
+        />
+      )}
     </div>
   );
 }

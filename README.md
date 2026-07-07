@@ -71,7 +71,7 @@ Required environment variables (see `.env.example`):
 | `NEXT_PUBLIC_SEPOLIA_RPC_URL` | Sepolia RPC endpoint (Infura/Alchemy) |
 | `NEXT_PUBLIC_REGISTRY_ADDRESS` | Official registry address — **verify against [the current docs](https://docs.zama.org/protocol/protocol-apps/addresses) before use** |
 | `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | From [cloud.walletconnect.com](https://cloud.walletconnect.com) |
-| `ZAMA_RELAYER_URL` | Zama's hosted Sepolia relayer — kept server-side, proxied via `app/api/relayer/[chainId]/route.ts` |
+| `ZAMA_RELAYER_URL` | Zama's hosted Sepolia relayer — kept server-side, proxied via `app/api/relayer/[chainId]/[...path]/route.ts` |
 
 ## Architecture
 
@@ -79,7 +79,7 @@ Required environment variables (see `.env.example`):
 app/
   page.tsx                 — main page: pair list + arbitrary decrypt
   providers.tsx             — wagmi + RainbowKit + React Query
-  api/relayer/[chainId]/    — server-side proxy to Zama's relayer (keeps keys off the client)
+  api/relayer/[chainId]/[...path]/ — server-side proxy to Zama's relayer (keeps keys off the client)
 lib/
   registry.ts               — SDK-backed registry reads + local-pair enrichment
   zama.ts                   — Zama SDK singleton + wrap/unwrap/decrypt helpers
@@ -150,4 +150,3 @@ Still worth confirming on a live testnet run:
   on this.
 - **SDK package is unpinned** (`"latest"` in `package.json`) — once you've
   tested against a working version, pin it exactly.
-

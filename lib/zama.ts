@@ -53,6 +53,11 @@ export type DecryptResult =
   | { status: "not-erc7984" }
   | { status: "unknown-error"; message: string };
 
+export type TokenDisplayMetadata = {
+  name?: string | null;
+  symbol?: string | null;
+};
+
 /**
  * Decrypts the connected wallet's balance on ANY ERC-7984 address.
  * Uses `createToken` (the generic Token class) deliberately — NOT
@@ -72,8 +77,38 @@ export async function decryptBalance(
     const message: string = err?.message ?? String(err);
     if (/denied|rejected/i.test(message)) return { status: "denied" };
     if (/acl|not authorized|no permission/i.test(message)) return { status: "no-acl-grant" };
-    if (/interface|not.*7984|invalid contract/i.test(message)) return { status: "not-erc7984" };
+    if (
+      /returned no data|0x\)|interface|not.*7984|invalid contract|address is not a contract/i.test(
+        message
+      )
+    ) {
+      return { status: "not-erc7984" };
+    }
+    if (/confidentialBalanceOf.*revert|confidentialBalanceOf.*reverted/i.test(message)) {
+      return {
+        status: "unknown-error",
+        message:
+          "This contract rejected confidential balance reads for your wallet. Make sure you pasted the correct confidential token address on Sepolia.",
+      };
+    }
     return { status: "unknown-error", message };
+  }
+}
+
+export async function getTokenDisplayMetadata(
+  sdk: ZamaSDK,
+  tokenAddress: `0x${string}`
+): Promise<TokenDisplayMetadata> {
+  try {
+    const token = sdk.createToken(tokenAddress);
+    const [name, symbol] = await Promise.allSettled([token.name(), token.symbol()]);
+
+    return {
+      name: name.status === "fulfilled" ? name.value : null,
+      symbol: symbol.status === "fulfilled" ? symbol.value : null,
+    };
+  } catch {
+    return {};
   }
 }
 

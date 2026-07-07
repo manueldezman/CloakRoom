@@ -19,11 +19,7 @@ const FAUCET_POLICIES: Record<`0x${string}`, FaucetPolicy> = {
   "0x93c931278A2aad1916783F952f94276eA5111442": { enabled: true, amount: 1000n * 10n ** 18n },
   "0xf6Ef9ADB61A48E29E36bc873070A46A3D2667ff3": {
     enabled: false,
-    reason: "No public faucet for this token",
-  },
-  "0x6AB54988261AEC573a2CA13cF802d3B1114f864C": {
-    enabled: false,
-    reason: "Faucet unavailable for this token",
+    reason: "ctGBP is restricted — its underlying tGBP mint is not publicly available.",
   },
 };
 
