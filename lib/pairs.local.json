@@ -1,0 +1,8 @@
+[
+  {
+    "tokenAddress": "0x0000000000000000000000000000000000dEaD",
+    "confidentialTokenAddress": "0x0000000000000000000000000000000000dEaD",
+    "label": "Example dev pair — replace or remove me",
+    "network": "sepolia"
+  }
+]

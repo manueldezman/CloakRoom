@@ -1,0 +1,24 @@
+name: Validate custom pairs
+
+on:
+  pull_request:
+    paths:
+      - "lib/pairs.local.json"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm ci
+
+      - name: Validate pairs.local.json against live Sepolia
+        run: npm run validate-pairs
+        env:
+          NEXT_PUBLIC_SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
+          NEXT_PUBLIC_REGISTRY_ADDRESS: ${{ secrets.REGISTRY_ADDRESS }}

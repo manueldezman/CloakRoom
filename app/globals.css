@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "Telegraf";
+  src: local("Telegraf");
+  font-weight: 400;
+  font-display: swap;
+}
+
+/* Fallback note: Telegraf is a licensed display face used on zama.org.
+   If you don't have a license, self-host a close-enough substitute
+   (e.g. "General Sans" or "Inter Tight") and keep this font-family name
+   so the rest of the design tokens don't need touching. */
+
+html,
+body {
+  background: #ffffff;
+  color: #000000;
+  font-family: "Telegraf", ui-sans-serif, system-ui, sans-serif;
+}
+
+* {
+  border-color: #190e065c;
+}
+
+::selection {
+  background: #ffd208;
+  color: #000000;
+}
+
+:focus-visible {
+  outline: 2px solid #000000;
+  outline-offset: 2px;
+}
