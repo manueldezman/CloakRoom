@@ -11,7 +11,8 @@
  */
 import { createPublicClient, http } from "viem";
 import { sepolia } from "viem/chains";
-import { registryAbi, erc165Abi, ERC7984_INTERFACE_ID } from "../lib/abis";
+import { ERC7984_WRAPPER_INTERFACE_ID } from "@zama-fhe/sdk";
+import { registryAbi, erc165Abi } from "../lib/abis";
 import pairs from "../lib/pairs.local.json";
 
 const RPC_URL = process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL ?? process.env.SEPOLIA_RPC_URL;
@@ -55,7 +56,7 @@ async function main() {
         address: pair.confidentialTokenAddress as `0x${string}`,
         abi: erc165Abi,
         functionName: "supportsInterface",
-        args: [ERC7984_INTERFACE_ID],
+        args: [ERC7984_WRAPPER_INTERFACE_ID],
       });
       if (!supports) {
         console.error(`  ✗ ${pair.confidentialTokenAddress} does not report ERC-7984 support.`);
