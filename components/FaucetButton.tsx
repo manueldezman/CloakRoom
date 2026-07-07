@@ -19,7 +19,7 @@ const FAUCET_POLICIES: Record<`0x${string}`, FaucetPolicy> = {
   "0x93c931278A2aad1916783F952f94276eA5111442": { enabled: true, amount: 1000n * 10n ** 18n },
   "0xf6Ef9ADB61A48E29E36bc873070A46A3D2667ff3": {
     enabled: false,
-    reason: "ctGBP is restricted — its underlying tGBP mint is not publicly available.",
+    reason: "Mint is restricted for this token pair.",
   },
 };
 
@@ -27,15 +27,18 @@ export function FaucetButton({
   tokenAddress,
   tokenSymbol,
   tokenDecimals,
+  buttonLabel = "Faucet",
 }: {
   tokenAddress: `0x${string}`;
   tokenSymbol?: string | null;
   tokenDecimals?: number | null;
+  buttonLabel?: string;
 }) {
   const { address } = useAccount();
   const { writeContractAsync, isPending } = useWriteContract();
   const [status, setStatus] = useState<"idle" | "ok" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
+
   const policy = FAUCET_POLICIES[tokenAddress] ?? {
     enabled: false,
     reason: "No public faucet for this token",
@@ -61,10 +64,10 @@ export function FaucetButton({
   return (
     <div className="flex flex-col gap-1">
       <Button variant="secondary" onClick={claim} disabled={!address || isPending || !policy.enabled}>
-        {isPending ? "Claiming…" : "Claim from faucet"}
+        {isPending ? "Claiming..." : buttonLabel}
       </Button>
       {!policy.enabled && <p className="text-body-sm text-tertiary">{policy.reason}</p>}
-      {status === "ok" && <p className="text-body-sm text-secondary">Claimed — check your wallet.</p>}
+      {status === "ok" && <p className="text-body-sm text-secondary">Claimed. Check your wallet.</p>}
       {status === "error" && <p className="text-body-sm text-error">{errorMsg}</p>}
     </div>
   );
@@ -76,9 +79,9 @@ function readableFaucetError(message: string, tokenSymbol?: string | null, token
     const symbol = tokenSymbol ?? "this token";
     const decimals = tokenDecimals ?? 18;
     const units = formatUnits(extractMaxAmount(message) ?? 0n, decimals);
-    return `Faucet limit reached for ${symbol} — max claim is ${units} ${symbol}.`;
+    return `Faucet limit reached for ${symbol} - max claim is ${units} ${symbol}.`;
   }
-  if (/exceed|limit|cooldown/i.test(message)) return "Faucet limit reached — try again later.";
+  if (/exceed|limit|cooldown/i.test(message)) return "Faucet limit reached - try again later.";
   return "Couldn't claim from the faucet right now.";
 }
 

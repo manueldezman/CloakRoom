@@ -7,13 +7,15 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        primary: "#ffd208",
-        secondary: "#000000",
-        tertiary: "#190e065c",
-        neutral: "#ffffff",
-        surface: "#edf2f5",
-        "on-surface": "#000000",
-        error: "#d92d20",
+        bg: "rgb(var(--bg) / <alpha-value>)",
+        fg: "rgb(var(--fg) / <alpha-value>)",
+        primary: "rgb(var(--primary) / <alpha-value>)",
+        secondary: "rgb(var(--secondary) / <alpha-value>)",
+        tertiary: "rgb(var(--tertiary) / <alpha-value>)",
+        neutral: "rgb(var(--neutral) / <alpha-value>)",
+        surface: "rgb(var(--surface) / <alpha-value>)",
+        "on-surface": "rgb(var(--on-surface) / <alpha-value>)",
+        error: "rgb(var(--error) / <alpha-value>)",
       },
       fontFamily: {
         display: ["Telegraf", "sans-serif"],

@@ -1,5 +1,5 @@
 {
-  "name": "zama-confidential-wrapper-registry",
+  "name": "zama-ctoken-registry",
   "version": "0.1.0",
   "private": true,
   "scripts": {

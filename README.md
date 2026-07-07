@@ -1,152 +1,124 @@
-# Confidential Wrapper Registry
+# Zama cToken Registry
 
-A dApp that turns the official [Zama Confidential Token Wrappers Registry](https://docs.zama.org/protocol/protocol-apps/registry-contract)
-into a single, usable product: browse every official ERC-20 ↔ ERC-7984 pair on
-Sepolia, wrap and unwrap between them, decrypt any ERC-7984 balance in your
-wallet, and claim the official test tokens from the faucet — all from one page.
+A protocol dashboard for the Zama Wrappers Registry. The app lets users browse official ERC-20 ↔ ERC-7984 pairs, wrap and unwrap on Sepolia and mainnet, decrypt balances for arbitrary ERC-7984 tokens, and claim Sepolia faucet tokens for the official test pairs.
 
-**Why this exists:** today, teams building on FHEVM tend to spin up their own
-ERC-20 test tokens and their own ERC-7984 wrappers instead of using the ones
-that already exist in Zama's official registry. That fragments the ecosystem —
-every integration targets a slightly different set of tokens. This app makes
-using the existing, official wrappers the path of least resistance.
+## Live
 
-**Live URL:** _add your deployed Vercel URL here_
-**Network:** Sepolia only (11155111)
+- Live URL: https://cloak-room.vercel.app/
+- GitHub repository: https://github.com/manueldezman/zama-cToken-registry
+- Supported chains: Ethereum mainnet and Sepolia
 
----
+## Features
 
-## How the registry is sourced (hybrid)
+- Browse the official onchain registry on the connected supported chain
+- Wrap and unwrap registry pairs
+- Decrypt balances for any ERC-7984 token address on the active supported chain
+- Claim faucet tokens on Sepolia for the known public cTokenMock pairs
+- Import custom pairs locally in the browser with `localStorage`
+- Merge repo-defined dev pairs from `lib/pairs.local.json`
 
-This app reads pairs from two places and merges them:
+## Registry source
 
-1. **Onchain (source of truth):** `lib/registry.ts` now uses the SDK's built-in
-   `WrappersRegistry` wrapper to read official pairs and token metadata from
-   the registry contract, then filters out revoked (`isValid === false`)
-   entries before showing them in the UI.
-2. **Local config:** `lib/pairs.local.json` — dev-only or custom pairs, for
-   testing wrappers that aren't in the official registry yet.
+The app uses a hybrid model:
 
-Official entries always take priority over a local entry for the same
-underlying ERC-20 address. Every pair in the UI is labeled **Official** or
-**Custom** so it's never ambiguous which is which.
+1. Official registry pairs are read from the Zama Wrappers Registry contract for the active chain.
+2. Repo-defined pairs are read from `lib/pairs.local.json`.
+3. Browser-imported pairs are stored in `localStorage` and merged last.
 
-## How to add a new pair
+Official pairs always win. Imported pairs never override official or repo-configured entries.
+
+Because official pairs are fetched from the onchain registry at runtime, newly registered official pairs can appear without a code change after the registry returns them and their metadata is readable.
+
+## Architecture
+
+- `app/page.tsx` renders the dashboard shell.
+- `components/Dashboard.tsx` coordinates network-aware registry browsing, faucet visibility, local pair import, and utility panels.
+- `components/PairList.tsx` and `components/PairCard.tsx` render official, repo-configured, and browser-imported pairs.
+- `components/WrapUnwrapDialog.tsx` handles wrap/unwrap, balance display, max amount shortcuts, and mainnet gas warnings.
+- `components/DecryptPanel.tsx` handles registry-pair balance reveal and arbitrary ERC-7984 token inspection/decryption.
+- `components/FaucetButton.tsx` handles Sepolia ERC-20 test-token minting with per-token faucet policies.
+- `lib/registry.ts` reads the SDK-backed onchain registry, merges local config, enriches imported pairs, and validates ERC-7984 support.
+- `lib/zama.ts` wraps Zama SDK calls for shield, unshield, and user decryption.
+- `app/api/relayer/[chainId]/[...path]/route.ts` proxies relayer requests through the app route.
+
+## Adding a new pair
+
+You have two paths:
+
+### 1. Repo-configured pair
 
 Add an entry to `lib/pairs.local.json`:
 
 ```json
 {
   "tokenAddress": "0xYourErc20Address",
-  "confidentialTokenAddress": "0xYourErc7984WrapperAddress",
-  "label": "My Dev Token",
+  "confidentialTokenAddress": "0xYourErc7984Address",
+  "label": "My Dev Pair",
   "network": "sepolia"
 }
 ```
 
-Open a PR. `.github/workflows/validate-pairs.yml` automatically runs
-`npm run validate-pairs` (`scripts/validate-pairs.ts`), which checks against
-live Sepolia that:
+Use this path for forks, team deployments, or dev-only pairs that should ship with the app configuration. If you are contributing to this repository, open a PR with the JSON change. The validation script checks that the confidential token exposes ERC-7984 and that the underlying token is not already an official pair.
 
-- your `confidentialTokenAddress` actually implements ERC-7984, and
-- your `tokenAddress` isn't already an official registry pair (it should
-  never shadow one).
+### 2. In-app local import
 
-The PR check fails if either condition isn't met, so a bad entry can't merge.
-This is the same validation logic the app itself runs when reading the
-registry, just executed as a CI script instead of in the browser.
+On Sepolia, use the `+ Add Pair` button in the registry header. Paste the underlying ERC-20 contract address and its matching ERC-7984 wrapper contract address, add an optional label, and save. Imported pairs are saved only in that browser via `localStorage`, scoped to the selected chain, and do not modify the official Zama registry.
 
-## Running locally
+This path is intended for demo, private, or developer-only pairs. The app cannot infer a wrapper from a single contract address; the ERC-20 and ERC-7984 wrapper must already be deployed and linked.
+
+## Local development
 
 ```bash
 npm install
-cp .env.example .env.local   # fill in the values below
 npm run dev
 ```
 
-Required environment variables (see `.env.example`):
+## Deployment
+
+The app is deployed on Vercel at https://cloak-room.vercel.app/.
+
+For a new deployment, connect the public GitHub repository to Vercel and set the environment variables below. Vercel can use the default Next.js build command:
+
+```bash
+npm run build
+```
+
+There is no custom deployment script required beyond the standard Vercel/Next.js deployment flow.
+
+## Environment variables
+
+Set these in `.env.local`:
 
 | Variable | Purpose |
-|---|---|
-| `NEXT_PUBLIC_SEPOLIA_RPC_URL` | Sepolia RPC endpoint (Infura/Alchemy) |
-| `NEXT_PUBLIC_REGISTRY_ADDRESS` | Official registry address — **verify against [the current docs](https://docs.zama.org/protocol/protocol-apps/addresses) before use** |
-| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | From [cloud.walletconnect.com](https://cloud.walletconnect.com) |
-| `ZAMA_RELAYER_URL` | Zama's hosted Sepolia relayer — kept server-side, proxied via `app/api/relayer/[chainId]/[...path]/route.ts` |
+| --- | --- |
+| `NEXT_PUBLIC_MAINNET_RPC_URL` | Optional mainnet RPC override |
+| `NEXT_PUBLIC_SEPOLIA_RPC_URL` | Optional Sepolia RPC override |
+| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | WalletConnect project ID for RainbowKit |
+| `ZAMA_MAINNET_RELAYER_URL` | Optional mainnet relayer override for the local proxy |
+| `ZAMA_SEPOLIA_RELAYER_URL` | Optional Sepolia relayer override for the local proxy |
 
-## Architecture
+The app falls back to public RPC endpoints if the optional RPC overrides are not set.
 
-```
-app/
-  page.tsx                 — main page: pair list + arbitrary decrypt
-  providers.tsx             — wagmi + RainbowKit + React Query
-  api/relayer/[chainId]/[...path]/ — server-side proxy to Zama's relayer (keeps keys off the client)
-lib/
-  registry.ts               — SDK-backed registry reads + local-pair enrichment
-  zama.ts                   — Zama SDK singleton + wrap/unwrap/decrypt helpers
-  pairs.local.json          — custom/dev pairs (the extensibility mechanism above)
-  abis.ts                   — minimal hand-picked ABI fragments (no full-contract ABIs needed)
-components/
-  PairList / PairCard       — registry browsing UI
-  WrapUnwrapDialog          — wrap/unwrap flow with pre-flight balance checks
-  DecryptPanel              — per-token reveal UI + "paste an address" arbitrary decrypt
-  FaucetButton              — plain ERC-20 mint call against official cTokenMocks
-scripts/validate-pairs.ts   — CI validation for new custom pairs
-```
+## Scripts
 
-## Wrap / unwrap / decrypt, in one paragraph
+- `npm run dev` - start the app locally
+- `npm run build` - production build
+- `npm run validate-pairs` - CI validation for repo-defined custom pairs
 
-Wrapping deposits your plain ERC-20 as collateral in the wrapper contract and
-mints you an encrypted ERC-7984 balance of the same amount; unwrapping burns
-the encrypted balance and releases your ERC-20 back. Balances on ERC-7984
-tokens are ciphertext handles — not human-readable numbers — until you
-explicitly request decryption, which requires signing an EIP-712 message with
-your wallet to prove you're authorized to see that value. The Zama SDK
-(`@zama-fhe/sdk`) handles the approval sequence, the encryption of amounts,
-and the EIP-712 signature flow; this app is a UI layer on top of it.
+## UX and error handling
 
-## Error handling
+- Unsupported networks show a blocking banner with one-click switch back to Sepolia.
+- Faucet and `+ Add Pair` only render on Sepolia.
+- Faucet claims use known safe per-token mint amounts and disable known restricted tokens.
+- The faucet panel links users to a Sepolia ETH faucet when their connected wallet has no Sepolia ETH.
+- Mainnet state-changing flows show a gas-cost notice.
+- Wrap pre-checks wallet balance before submitting.
+- The wrap dialog surfaces actionable SDK/wallet errors instead of collapsing everything into a generic failure.
+- Arbitrary token inspection distinguishes unsupported/plain ERC-20 addresses from readable ERC-7984 tokens.
+- User decryption uses the connected wallet's EIP-712 signature flow.
 
-- **Wrong network:** a banner appears with a one-click switch to Sepolia
-  whenever the connected wallet is on a different chain.
-- **Insufficient balance / missing approval:** checked before submitting a
-  wrap, with a specific message rather than a raw revert.
-- **Unsupported / malformed token:** custom pairs still get a live ERC-7984
-  compatibility check before wrap/unwrap is enabled.
-- **Decryption denied / no ACL grant / not ERC-7984:** each surfaces as a
-  distinct, specific message in the decrypt panel rather than a generic error.
+## Notes
 
-## Verification status (read before demo day)
-
-This scaffold was corrected against the **actual installed package's type
-definitions** (`node_modules/@zama-fhe/sdk/dist/esm/index.d.ts`) on
-2026-07-07 — ground truth, not docs, since this SDK's documented API shape
-changed more than once during this project's development. Confirmed from the
-real types:
-
-- `createToken` and `createWrappedToken` are **both real, for different
-  purposes**: `createToken` returns a generic `Token` (used for arbitrary
-  ERC-7984 decrypt), `createWrappedToken` returns a `WrappedToken` (used for
-  `shield`/`unshield` on registry wrapper contracts specifically).
-- The SDK exports `DefaultRegistryAddresses` directly — `lib/chains.ts` now
-  sources the official Sepolia registry address from the SDK itself instead
-  of requiring a manually-verified env var. `NEXT_PUBLIC_REGISTRY_ADDRESS` is
-  now an optional override, not a requirement.
-- `ERC7984_WRAPPER_INTERFACE_ID` and `ERC7984_INTERFACE_ID` are separate
-  constants, both exported by the SDK. The app still uses the wrapper-specific
-  ID for live validation of custom pairs in `lib/registry.ts`.
-- Unwrap is confirmed genuinely two-step and event-tracked at the type level
-  (`UnwrapRequestedEvent`, `UnwrapFinalizedEvent`, plus
-  `loadPendingUnshieldRequest`/`savePendingUnshield`/`clearPendingUnshield`
-  for surviving a page reload mid-unwrap). `unshield()` likely resolves once
-  the request is *submitted*, not once it's *finalized* — a good next
-  improvement is wiring up `loadPendingUnshieldRequest` to show a persistent
-  "unwrap pending" banner rather than assuming completion on tx confirmation.
-
-Still worth confirming on a live testnet run:
-
-- **Faucet mint signature is assumed**, not confirmed: `lib/abis.ts` assumes
-  `mint(address to, uint256 amount)` on the official cTokenMocks. Check the
-  verified source of an actual cTokenMock on Sepolia Etherscan before relying
-  on this.
-- **SDK package is unpinned** (`"latest"` in `package.json`) — once you've
-  tested against a working version, pin it exactly.
+- Faucet actions only render on Sepolia.
+- Mainnet shows a gas-cost warning before wrap and unwrap actions.
+- Decryption uses the EIP-712 user-decryption flow through the Zama SDK.

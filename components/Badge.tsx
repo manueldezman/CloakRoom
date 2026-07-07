@@ -6,13 +6,13 @@ export function Badge({
   tone?: "primary" | "neutral" | "error";
 }) {
   const toneClasses = {
-    primary: "bg-primary text-secondary",
-    neutral: "bg-surface text-on-surface border border-tertiary",
-    error: "bg-white text-error border border-error",
+    primary: "border border-primary/80 bg-primary text-secondary",
+    neutral: "border border-tertiary bg-transparent text-fg",
+    error: "border border-error/55 bg-transparent text-error",
   }[tone];
 
   return (
-    <span className={`inline-flex items-center rounded-full px-2 py-1 text-label-sm ${toneClasses}`}>
+    <span className={`inline-flex items-center rounded-[2px] px-2.5 py-1 text-[11px] uppercase tracking-[0.08em] ${toneClasses}`}>
       {children}
     </span>
   );

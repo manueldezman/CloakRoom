@@ -1,26 +1,27 @@
-import { WrappersRegistry, type TokenWrapperPairWithMetadata } from "@zama-fhe/sdk";
+import {
+  ERC7984_WRAPPER_INTERFACE_ID,
+  WrappersRegistry,
+  type TokenWrapperPairWithMetadata,
+} from "@zama-fhe/sdk";
 import { ViemProvider } from "@zama-fhe/sdk/viem";
-import { publicClient, REGISTRY_ADDRESS, SEPOLIA_CHAIN_ID } from "./chains";
 import { erc165Abi, erc20ReadAbi, erc7984ReadAbi } from "./abis";
-import { ERC7984_WRAPPER_INTERFACE_ID } from "@zama-fhe/sdk";
+import { getChainKey, getPublicClientForChain, getRegistryAddress, type SupportedChainId } from "./chains";
 import localPairsRaw from "./pairs.local.json";
 
-export type PairSource = "official" | "custom";
+export type PairSource = "official" | "custom-config" | "imported-local";
 
 export type WrapperPair = {
+  chainId: SupportedChainId;
   tokenAddress: `0x${string}`;
   confidentialTokenAddress: `0x${string}`;
   source: PairSource;
   label?: string;
-  // Enriched metadata — undefined until resolved, null if a read failed.
   tokenSymbol?: string | null;
   tokenName?: string | null;
   tokenDecimals?: number | null;
   confidentialSymbol?: string | null;
   confidentialName?: string | null;
   confidentialDecimals?: number | null;
-  // Official pairs come from the SDK-backed registry path. Custom pairs are
-  // still live-validated manually before the UI enables wrap/unwrap.
   supportsErc7984: boolean;
   flagged: boolean;
 };
@@ -32,19 +33,21 @@ type LocalPair = {
   network: string;
 };
 
-const wrappersRegistry = new WrappersRegistry({
-  provider: new ViemProvider({ publicClient }),
-  registryAddresses: { [SEPOLIA_CHAIN_ID]: REGISTRY_ADDRESS },
-});
+export type ImportedPair = {
+  chainId: SupportedChainId;
+  tokenAddress: `0x${string}`;
+  confidentialTokenAddress: `0x${string}`;
+  label?: string;
+};
 
-/**
- * Reads every official pair through the SDK's built-in registry wrapper.
- * The SDK still returns `isValid` on each entry, so we keep the explicit
- * filter to avoid surfacing revoked pairs.
- */
-async function fetchValidOfficialPairs(): Promise<TokenWrapperPairWithMetadata[]> {
+async function fetchValidOfficialPairs(chainId: SupportedChainId): Promise<TokenWrapperPairWithMetadata[]> {
+  const publicClient = getPublicClientForChain(chainId);
+  const wrappersRegistry = new WrappersRegistry({
+    provider: new ViemProvider({ publicClient }),
+    registryAddresses: { [chainId]: getRegistryAddress(chainId) },
+  });
+
   const length = await wrappersRegistry.getTokenPairsLength();
-
   if (length === 0n) return [];
 
   const page = await wrappersRegistry.listPairs({
@@ -53,11 +56,12 @@ async function fetchValidOfficialPairs(): Promise<TokenWrapperPairWithMetadata[]
     metadata: true,
   });
 
-  return page.items.filter((pair) => pair.isValid);
+  return page.items.filter((pair) => pair.isValid && !isExcludedOfficialPair(pair));
 }
 
-function mapOfficialPairs(pairs: TokenWrapperPairWithMetadata[]): WrapperPair[] {
+function mapOfficialPairs(chainId: SupportedChainId, pairs: TokenWrapperPairWithMetadata[]): WrapperPair[] {
   return pairs.map((pair) => ({
+    chainId,
     tokenAddress: pair.tokenAddress,
     confidentialTokenAddress: pair.confidentialTokenAddress,
     source: "official",
@@ -72,45 +76,46 @@ function mapOfficialPairs(pairs: TokenWrapperPairWithMetadata[]): WrapperPair[] 
   }));
 }
 
-/**
- * For each candidate pair, re-verify ERC-165/ERC-7984 support and pull
- * display metadata in one batched multicall. A single malformed pair must
- * never crash the whole list — allowFailure keeps failures scoped per-call.
- */
 async function enrichCustomPairs(
+  chainId: SupportedChainId,
+  source: Exclude<PairSource, "official">,
   pairs: { tokenAddress: `0x${string}`; confidentialTokenAddress: `0x${string}` }[],
-  source: PairSource,
   labels?: Map<string, string>
 ): Promise<WrapperPair[]> {
   if (pairs.length === 0) return [];
 
-  const contracts = pairs.flatMap((p) => [
+  const publicClient = getPublicClientForChain(chainId);
+  const contracts = pairs.flatMap((pair) => [
     {
-      address: p.confidentialTokenAddress,
+      address: pair.confidentialTokenAddress,
       abi: erc165Abi,
       functionName: "supportsInterface",
       args: [ERC7984_WRAPPER_INTERFACE_ID],
     } as const,
-    { address: p.tokenAddress, abi: erc20ReadAbi, functionName: "symbol" } as const,
-    { address: p.tokenAddress, abi: erc20ReadAbi, functionName: "name" } as const,
-    { address: p.tokenAddress, abi: erc20ReadAbi, functionName: "decimals" } as const,
-    { address: p.confidentialTokenAddress, abi: erc7984ReadAbi, functionName: "symbol" } as const,
-    { address: p.confidentialTokenAddress, abi: erc7984ReadAbi, functionName: "name" } as const,
-    { address: p.confidentialTokenAddress, abi: erc7984ReadAbi, functionName: "decimals" } as const,
+    { address: pair.tokenAddress, abi: erc20ReadAbi, functionName: "symbol" } as const,
+    { address: pair.tokenAddress, abi: erc20ReadAbi, functionName: "name" } as const,
+    { address: pair.tokenAddress, abi: erc20ReadAbi, functionName: "decimals" } as const,
+    { address: pair.confidentialTokenAddress, abi: erc7984ReadAbi, functionName: "symbol" } as const,
+    { address: pair.confidentialTokenAddress, abi: erc7984ReadAbi, functionName: "name" } as const,
+    { address: pair.confidentialTokenAddress, abi: erc7984ReadAbi, functionName: "decimals" } as const,
   ]);
 
   const results = await publicClient.multicall({ contracts, allowFailure: true });
 
-  return pairs.map((p, i) => {
-    const [supports, tSymbol, tName, tDecimals, cSymbol, cName, cDecimals] = results.slice(i * 7, i * 7 + 7);
+  return pairs.map((pair, index) => {
+    const [supports, tSymbol, tName, tDecimals, cSymbol, cName, cDecimals] = results.slice(
+      index * 7,
+      index * 7 + 7
+    );
 
     const supportsErc7984 = supports.status === "success" ? Boolean(supports.result) : false;
 
     return {
-      tokenAddress: p.tokenAddress,
-      confidentialTokenAddress: p.confidentialTokenAddress,
+      chainId,
+      tokenAddress: pair.tokenAddress,
+      confidentialTokenAddress: pair.confidentialTokenAddress,
       source,
-      label: labels?.get(p.tokenAddress.toLowerCase()),
+      label: labels?.get(pair.tokenAddress.toLowerCase()) || undefined,
       tokenSymbol: tSymbol.status === "success" ? (tSymbol.result as string) : null,
       tokenName: tName.status === "success" ? (tName.result as string) : null,
       tokenDecimals: tDecimals.status === "success" ? (tDecimals.result as number) : null,
@@ -118,38 +123,66 @@ async function enrichCustomPairs(
       confidentialName: cName.status === "success" ? (cName.result as string) : null,
       confidentialDecimals: cDecimals.status === "success" ? (cDecimals.result as number) : null,
       supportsErc7984,
-      // Custom entries stay on the manual validation path so a bad local pair
-      // never silently looks like a safe official registry entry.
       flagged: !supportsErc7984 || (tSymbol.status !== "success" && cSymbol.status !== "success"),
     };
   });
 }
 
-function loadLocalPairs(): LocalPair[] {
+function loadLocalPairs(chainId: SupportedChainId): LocalPair[] {
+  const expectedNetwork = getChainKey(chainId);
   return (localPairsRaw as LocalPair[]).filter(
-    (p) => p.network === "sepolia" && p.tokenAddress !== "0x0000000000000000000000000000000000dEaD"
+    (pair) =>
+      pair.network === expectedNetwork &&
+      pair.tokenAddress !== "0x0000000000000000000000000000000000dEaD"
   );
 }
 
-/**
- * The single entry point the UI calls. Onchain (official) pairs always win
- * over a local pair declared for the same underlying ERC-20 — the registry
- * is the source of truth, local config only fills gaps.
- */
-export async function fetchAllPairs(): Promise<WrapperPair[]> {
+function isExcludedOfficialPair(pair: TokenWrapperPairWithMetadata) {
+  const haystack = [
+    pair.underlying.name,
+    pair.underlying.symbol,
+    pair.confidential.name,
+    pair.confidential.symbol,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return haystack.includes("steak");
+}
+
+export async function fetchAllPairs(
+  chainId: SupportedChainId,
+  importedPairs: ImportedPair[] = []
+): Promise<WrapperPair[]> {
   const [officialRaw, local] = await Promise.all([
-    fetchValidOfficialPairs(),
-    Promise.resolve(loadLocalPairs()),
+    fetchValidOfficialPairs(chainId),
+    Promise.resolve(loadLocalPairs(chainId)),
   ]);
 
-  const officialAddresses = new Set(officialRaw.map((p) => p.tokenAddress.toLowerCase()));
-  const customOnly = local.filter((p) => !officialAddresses.has(p.tokenAddress.toLowerCase()));
-  const labels = new Map(local.map((p) => [p.tokenAddress.toLowerCase(), p.label ?? ""]));
+  const officialTokenAddresses = new Set(officialRaw.map((pair) => pair.tokenAddress.toLowerCase()));
+  const localOnly = local.filter((pair) => !officialTokenAddresses.has(pair.tokenAddress.toLowerCase()));
+  const mergedTokenAddresses = new Set([
+    ...officialTokenAddresses,
+    ...localOnly.map((pair) => pair.tokenAddress.toLowerCase()),
+  ]);
+  const importedOnly = importedPairs.filter(
+    (pair) => pair.chainId === chainId && !mergedTokenAddresses.has(pair.tokenAddress.toLowerCase())
+  );
 
-  const [official, custom] = await Promise.all([
-    Promise.resolve(mapOfficialPairs(officialRaw)),
-    enrichCustomPairs(customOnly, "custom", labels),
+  const localLabels = new Map(localOnly.map((pair) => [pair.tokenAddress.toLowerCase(), pair.label ?? ""]));
+  const importedLabels = new Map(
+    importedOnly.map((pair) => [pair.tokenAddress.toLowerCase(), pair.label ?? ""])
+  );
+
+  const localAddressSet = new Set(localOnly.map((pair) => pair.tokenAddress.toLowerCase()));
+  const uniqueImportedOnly = importedOnly.filter((pair) => !localAddressSet.has(pair.tokenAddress.toLowerCase()));
+
+  const [official, customConfig, importedLocal] = await Promise.all([
+    Promise.resolve(mapOfficialPairs(chainId, officialRaw)),
+    enrichCustomPairs(chainId, "custom-config", localOnly, localLabels),
+    enrichCustomPairs(chainId, "imported-local", uniqueImportedOnly, importedLabels),
   ]);
 
-  return [...official, ...custom];
+  return [...official, ...customConfig, ...importedLocal];
 }

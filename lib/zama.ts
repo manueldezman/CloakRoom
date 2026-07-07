@@ -1,50 +1,44 @@
 "use client";
 
-import { ZamaSDK, DefaultRegistryAddresses } from "@zama-fhe/sdk";
+import { ZamaSDK } from "@zama-fhe/sdk";
 import { createConfig } from "@zama-fhe/sdk/viem";
-import { sepolia as sepoliaFhe, type FheChain } from "@zama-fhe/sdk/chains";
+import { mainnet as mainnetFhe, sepolia as sepoliaFhe, type FheChain } from "@zama-fhe/sdk/chains";
 import { web } from "@zama-fhe/sdk/web";
 import type { PublicClient, WalletClient } from "viem";
-import { SEPOLIA_CHAIN_ID } from "./chains";
+import { getExplorerTxUrl, getSupportedChainId, type SupportedChainId } from "./chains";
+import { erc20ReadAbi } from "./abis";
 
-// Rewritten against the ACTUAL installed package's type definitions
-// (node_modules/@zama-fhe/sdk/dist/esm/index.d.ts), not docs — this SDK's
-// docs changed shape multiple times during this project, so treat only the
-// installed types as ground truth. Root-level imports are used throughout
-// since createConfig, ZamaSDK, and DefaultRegistryAddresses are all exported
-// directly from "@zama-fhe/sdk" per its real export list.
+const FHE_CHAINS: Record<SupportedChainId, FheChain> = {
+  [mainnetFhe.id]: mainnetFhe,
+  [sepoliaFhe.id]: sepoliaFhe,
+};
 
-let sdkSingleton: ZamaSDK | null = null;
-
-export function getZamaSDK(walletClient: WalletClient, publicClient: PublicClient): ZamaSDK {
-  if (sdkSingleton) return sdkSingleton;
-
+export function getZamaSDK(
+  chainId: SupportedChainId,
+  walletClient: WalletClient,
+  publicClient: PublicClient
+): ZamaSDK {
+  const fheChain = FHE_CHAINS[chainId];
   const relayerUrl =
     typeof window !== "undefined"
-      ? `${window.location.origin}/api/relayer/${SEPOLIA_CHAIN_ID}`
-      : `/api/relayer/${SEPOLIA_CHAIN_ID}`;
+      ? `${window.location.origin}/api/relayer/${chainId}`
+      : `/api/relayer/${chainId}`;
 
-  const mySepolia = { ...sepoliaFhe, relayerUrl } as const satisfies FheChain;
+  const chain = { ...fheChain, relayerUrl } as const satisfies FheChain;
 
-  const config = createConfig({
-    chains: [mySepolia],
-    publicClient,
-    walletClient,
-    relayers: { [mySepolia.id]: web() },
-  });
-
-  sdkSingleton = new ZamaSDK(config);
-  return sdkSingleton;
+  return new ZamaSDK(
+    createConfig({
+      chains: [chain],
+      publicClient,
+      walletClient,
+      relayers: { [chain.id]: web() },
+    })
+  );
 }
 
 export function resetZamaSDK() {
-  sdkSingleton = null;
+  return;
 }
-
-/** The official registry address, shipped BY the SDK — no manual lookup needed. */
-export const OFFICIAL_REGISTRY_ADDRESS = DefaultRegistryAddresses[SEPOLIA_CHAIN_ID] as
-  | `0x${string}`
-  | undefined;
 
 export type DecryptResult =
   | { status: "ok"; value: bigint }
@@ -78,11 +72,18 @@ export async function decryptBalance(
     if (/denied|rejected/i.test(message)) return { status: "denied" };
     if (/acl|not authorized|no permission/i.test(message)) return { status: "no-acl-grant" };
     if (
-      /returned no data|0x\)|interface|not.*7984|invalid contract|address is not a contract/i.test(
+      /returned no data|0x\)|interface|not.*7984|invalid contract|address is not a contract|confidentialBalanceOf|HTTP error! status: 404/i.test(
         message
       )
     ) {
       return { status: "not-erc7984" };
+    }
+    if (/HTTP error! status: 500/i.test(message)) {
+      return {
+        status: "unknown-error",
+        message:
+          "This token rejected the confidential balance read on the active network. Double-check that you pasted an ERC-7984 contract address.",
+      };
     }
     if (/confidentialBalanceOf.*revert|confidentialBalanceOf.*reverted/i.test(message)) {
       return {
@@ -96,20 +97,18 @@ export async function decryptBalance(
 }
 
 export async function getTokenDisplayMetadata(
-  sdk: ZamaSDK,
+  publicClient: PublicClient,
   tokenAddress: `0x${string}`
 ): Promise<TokenDisplayMetadata> {
-  try {
-    const token = sdk.createToken(tokenAddress);
-    const [name, symbol] = await Promise.allSettled([token.name(), token.symbol()]);
+  const [name, symbol] = await Promise.allSettled([
+    publicClient.readContract({ address: tokenAddress, abi: erc20ReadAbi, functionName: "name" }),
+    publicClient.readContract({ address: tokenAddress, abi: erc20ReadAbi, functionName: "symbol" }),
+  ]);
 
-    return {
-      name: name.status === "fulfilled" ? name.value : null,
-      symbol: symbol.status === "fulfilled" ? symbol.value : null,
-    };
-  } catch {
-    return {};
-  }
+  return {
+    name: name.status === "fulfilled" ? name.value : null,
+    symbol: symbol.status === "fulfilled" ? symbol.value : null,
+  };
 }
 
 export type WrapResult = { status: "ok"; txHash: `0x${string}` } | { status: "error"; message: string };
@@ -156,4 +155,8 @@ export async function unwrapToken(
   } catch (err: any) {
     return { status: "error", message: err?.message ?? String(err) };
   }
+}
+
+export function currentExplorerUrl(chainId: SupportedChainId, txHash: string) {
+  return getExplorerTxUrl(getSupportedChainId(chainId), txHash);
 }

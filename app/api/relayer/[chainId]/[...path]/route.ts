@@ -1,20 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const ZAMA_RELAYER_URL = process.env.ZAMA_RELAYER_URL;
+const RELAYER_URLS: Record<string, string | undefined> = {
+  "1": process.env.ZAMA_MAINNET_RELAYER_URL ?? "https://relayer.mainnet.zama.org/v2",
+  "11155111": process.env.ZAMA_SEPOLIA_RELAYER_URL ?? "https://relayer.testnet.zama.org/v2",
+};
 
 async function proxy(
   req: NextRequest,
   params: { chainId: string; path: string[] }
 ) {
-  if (!ZAMA_RELAYER_URL) {
+  const upstreamBase = RELAYER_URLS[params.chainId];
+  if (!upstreamBase) {
     return NextResponse.json(
-      { error: "ZAMA_RELAYER_URL is not configured on the server" },
+      { error: `No relayer upstream configured for chain ${params.chainId}` },
       { status: 500 }
     );
   }
 
   const upstreamPath = params.path.join("/");
-  const url = new URL(upstreamPath, ZAMA_RELAYER_URL.endsWith("/") ? ZAMA_RELAYER_URL : `${ZAMA_RELAYER_URL}/`);
+  const url = new URL(upstreamPath, upstreamBase.endsWith("/") ? upstreamBase : `${upstreamBase}/`);
   url.search = req.nextUrl.search;
 
   const init: RequestInit = {

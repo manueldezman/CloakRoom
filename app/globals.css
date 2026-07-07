@@ -2,35 +2,91 @@
 @tailwind components;
 @tailwind utilities;
 
-@font-face {
-  font-family: "Telegraf";
-  src: local("Telegraf");
-  font-weight: 400;
-  font-display: swap;
+:root {
+  --bg: 239 237 230;
+  --fg: 28 27 24;
+  --surface: 250 248 241;
+  --neutral: 231 228 218;
+  --primary: 255 210 8;
+  --accent-text: 151 111 0;
+  --secondary: 28 27 24;
+  --tertiary: 103 96 82;
+  --on-surface: 28 27 24;
+  --error: 177 57 45;
+  --grid-line: rgba(28, 27, 24, 0.12);
+  --page-glow: radial-gradient(circle at 18% 0%, rgba(255, 210, 8, 0.12), transparent 34%),
+    radial-gradient(circle at 80% 12%, rgba(45, 45, 45, 0.08), transparent 30%);
 }
 
-/* Fallback note: Telegraf is a licensed display face used on zama.org.
-   If you don't have a license, self-host a close-enough substitute
-   (e.g. "General Sans" or "Inter Tight") and keep this font-family name
-   so the rest of the design tokens don't need touching. */
+:root[data-theme="dark"] {
+  --bg: 9 9 8;
+  --fg: 231 228 218;
+  --surface: 18 17 15;
+  --neutral: 31 29 25;
+  --primary: 255 210 8;
+  --accent-text: 255 210 8;
+  --secondary: 9 9 8;
+  --tertiary: 143 134 114;
+  --on-surface: 231 228 218;
+  --error: 230 122 105;
+  --grid-line: rgba(231, 228, 218, 0.12);
+  --page-glow: radial-gradient(circle at 18% 0%, rgba(255, 210, 8, 0.1), transparent 30%),
+    radial-gradient(circle at 78% 6%, rgba(244, 244, 244, 0.05), transparent 32%);
+}
 
 html,
 body {
-  background: #ffffff;
-  color: #000000;
+  background:
+    var(--page-glow),
+    linear-gradient(180deg, rgb(var(--bg)) 0%, rgb(var(--bg)) 100%);
+  color: rgb(var(--fg));
   font-family: "Telegraf", ui-sans-serif, system-ui, sans-serif;
+  min-height: 100%;
+}
+
+body {
+  background-attachment: fixed;
+  position: relative;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, rgb(255 210 8 / 0.7) 20%, rgb(var(--fg) / 0.18) 50%, transparent 100%);
+  pointer-events: none;
+  z-index: 50;
 }
 
 * {
-  border-color: #190e065c;
+  border-color: var(--grid-line);
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(rgb(var(--fg) / 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--fg) / 0.035) 1px, transparent 1px);
+  background-size: 100% 42px, 42px 100%;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.04) 35%, transparent 72%);
+  opacity: 0.14;
+  z-index: 0;
+}
+
+main {
+  position: relative;
+  z-index: 1;
 }
 
 ::selection {
-  background: #ffd208;
-  color: #000000;
+  background: rgb(var(--primary));
+  color: rgb(var(--secondary));
 }
 
 :focus-visible {
-  outline: 2px solid #000000;
+  outline: 2px solid rgb(var(--primary));
   outline-offset: 2px;
 }

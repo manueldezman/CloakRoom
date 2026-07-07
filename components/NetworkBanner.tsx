@@ -1,26 +1,27 @@
 "use client";
 
 import { useAccount, useSwitchChain } from "wagmi";
-import { sepolia } from "wagmi/chains";
 import { Button } from "./Button";
+import { getChainConfig, isSupportedChainId, DEFAULT_CHAIN_ID } from "@/lib/chains";
 
 export function NetworkBanner() {
   const { isConnected, chainId } = useAccount();
-  const { switchChain, isPending } = useSwitchChain();
+  const { switchChainAsync, isPending } = useSwitchChain();
 
-  if (!isConnected || chainId === sepolia.id) return null;
+  if (!isConnected || isSupportedChainId(chainId)) return null;
+  const target = getChainConfig(DEFAULT_CHAIN_ID);
 
   return (
-    <div className="flex items-center justify-between rounded-md border border-error bg-white px-md py-sm mb-md">
-      <p className="text-body-md">
-        Wrong network. This app only works on <strong>Sepolia</strong>.
+    <div className="flex flex-wrap items-center justify-between gap-3 border border-error/40 bg-surface px-4 py-3">
+      <p className="text-[14px] leading-6 text-fg">
+        Unsupported network. Switch to <strong>{target.shortLabel}</strong> to use the registry.
       </p>
       <Button
         variant="secondary"
-        onClick={() => switchChain({ chainId: sepolia.id })}
+        onClick={() => void switchChainAsync({ chainId: DEFAULT_CHAIN_ID }).catch(() => null)}
         disabled={isPending}
       >
-        {isPending ? "Switching…" : "Switch to Sepolia"}
+        {isPending ? "Switching..." : `Switch to ${target.shortLabel}`}
       </Button>
     </div>
   );
