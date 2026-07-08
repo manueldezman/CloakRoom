@@ -6,15 +6,30 @@ A protocol dashboard for the Zama Wrappers Registry. The app lets users browse o
 
 - Live URL: https://cloak-room.vercel.app/
 
+<img width="1275" height="507" alt="image" src="https://github.com/user-attachments/assets/b6c16166-b5ee-4201-b7a9-74530e3d81a1" />
+
+
 - Supported chains: Ethereum mainnet and Sepolia
 
 ## Features
 
-- Browse the official onchain registry on the connected supported chain
-- Wrap and unwrap registry pairs
-- Decrypt balances for any ERC-7984 token address on the active supported chain
-- Claim faucet tokens on Sepolia for the known public cTokenMock pairs
-- Import custom pairs locally in the browser with `localStorage`
+
+- Claim faucet tokens on Sepolia for the known public cTokenMock pairs <br/> <br/>  <img width="475" height="417" alt="image" src="https://github.com/user-attachments/assets/b9207eea-7280-48b7-a2c8-584d77390e47" />
+
+- Browse the official onchain registry on the connected supported chain <br/> <br/> <img width="1313" height="385" alt="image" src="https://github.com/user-attachments/assets/944d2365-80be-4870-84dc-04a84314a817" />
+
+- Wrap and unwrap registry pairs <br/>  <br/> <img width="315" height="332" alt="image" src="https://github.com/user-attachments/assets/9b944033-0594-4df0-b607-9a71d7f59931" /><img width="448" height="319" alt="image" src="https://github.com/user-attachments/assets/f16efe23-d952-4740-989b-6777de205dd4" />
+
+
+- Decrypt balances for any ERC-7984 token address on the active supported chain <br/> <br/>
+<img width="315" height="332" alt="image" src="https://github.com/user-attachments/assets/9fbdbb7c-5002-4d87-b34f-8295388043fa" /><img width="287" height="381" alt="image" src="https://github.com/user-attachments/assets/89613f46-53cc-4691-bd5f-f98cffcf6645" />
+
+- Decrypt balances for any arbitrary ERC-7984 token address on the active supported chain <br/> <br/> <img width="468" height="414" alt="image" src="https://github.com/user-attachments/assets/52a075dd-d5ab-4bee-92ce-7ce27c03dc36" />
+
+
+- Import custom pairs ( see [Adiing a new pair](##Adding-a-new-pair) for more details)
+
+
 - Merge repo-defined dev pairs from `lib/pairs.local.json`
 
 ## Registry source
@@ -62,7 +77,13 @@ Use this path for forks, team deployments, or dev-only pairs that should ship wi
 
 ### 2. In-app local import
 
-On Sepolia, use the `+ Add Pair` button in the registry header. Paste the underlying ERC-20 contract address and its matching ERC-7984 wrapper contract address, add an optional label, and save. Imported pairs are saved only in that browser via `localStorage`, scoped to the selected chain, and do not modify the official Zama registry.
+On Sepolia, use the `+ Add Pair` button in the registry header. <img width="1284" height="470" alt="image" src="https://github.com/user-attachments/assets/e054dbd7-acb7-48ed-82ae-d982c51da823" />
+
+
+Paste the underlying ERC-20 contract address and its matching ERC-7984 wrapper contract address, add an optional label, and save. <img width="639" height="530" alt="image" src="https://github.com/user-attachments/assets/1aa01dcc-3855-4450-b142-757cad9a0047" />
+
+
+Imported pairs are saved only in that browser via `localStorage`, scoped to the selected chain, and do not modify the official Zama registry.
 
 This path is intended for demo, private, or developer-only pairs. The app cannot infer a wrapper from a single contract address; the ERC-20 and ERC-7984 wrapper must already be deployed and linked.
 
@@ -107,14 +128,17 @@ The app falls back to public RPC endpoints if the optional RPC overrides are not
 
 ## UX and error handling
 
-- Unsupported networks show a blocking banner with one-click switch back to Sepolia.
+- Unsupported networks show a blocking banner with one-click switch back to Sepolia. <br/> <img width="1220" height="58" alt="image" src="https://github.com/user-attachments/assets/9fe3a439-9640-4db2-817e-0c95d5270a92" />
+
 - Faucet and `+ Add Pair` only render on Sepolia.
 - Faucet claims use known safe per-token mint amounts and disable known restricted tokens.
-- The faucet panel links users to a Sepolia ETH faucet when their connected wallet has no Sepolia ETH.
+- The faucet panel links users to a Sepolia ETH faucet when their connected wallet has no Sepolia ETH. <br/> <img width="432" height="129" alt="image" src="https://github.com/user-attachments/assets/9dc620ce-e4b4-4403-8441-ef099d85771a" />
+
 - Mainnet state-changing flows show a gas-cost notice.
 - Wrap pre-checks wallet balance before submitting.
 - The wrap dialog surfaces actionable SDK/wallet errors instead of collapsing everything into a generic failure.
-- Arbitrary token inspection distinguishes unsupported/plain ERC-20 addresses from readable ERC-7984 tokens.
+- Arbitrary token inspection distinguishes unsupported/plain ERC-20 addresses from readable ERC-7984 tokens.<br/> <img width="462" height="415" alt="image" src="https://github.com/user-attachments/assets/ae2df46d-a76f-4cc5-870b-fad02a4c021d" />
+
 - User decryption uses the connected wallet's EIP-712 signature flow.
 
 ## Notes
