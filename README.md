@@ -5,7 +5,7 @@ A protocol dashboard for the Zama Wrappers Registry. The app lets users browse o
 ## Live
 
 - Live URL: https://cloak-room.vercel.app/
-- GitHub repository: https://github.com/manueldezman/zama-cToken-registry
+
 - Supported chains: Ethereum mainnet and Sepolia
 
 ## Features
