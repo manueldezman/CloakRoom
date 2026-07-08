@@ -1,4 +1,4 @@
-# Zama cToken Registry
+# Zama CloakRoom
 
 A protocol dashboard for the Zama Wrappers Registry. The app lets users browse official ERC-20 ↔ ERC-7984 pairs, wrap and unwrap on Sepolia and mainnet, decrypt balances for arbitrary ERC-7984 tokens, and claim Sepolia faucet tokens for the official test pairs.
 
